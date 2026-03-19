@@ -1,7 +1,11 @@
 import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { Transaction, ReconciliationReport, UnmatchedEntry } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const apiKey = process.env.GEMINI_API_KEY || "";
+if (!apiKey) {
+  console.warn("GEMINI_API_KEY is not defined in the environment.");
+}
+const ai = new GoogleGenAI({ apiKey });
 
 export async function processOCR(fileData: string, mimeType: string): Promise<{ transactions: Transaction[], companyName?: string }> {
   const response = await ai.models.generateContent({

@@ -135,6 +135,7 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
   const [internalFile, setInternalFile] = useState<File | null>(null);
   const [externalFile, setExternalFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAddNewSubType = () => {
     if (newSubTypeInput && !subTypeOptions.includes(newSubTypeInput)) {
@@ -148,8 +149,13 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
   const handleReconcile = async () => {
     if (!internalFile || !externalFile || !name) return;
     setIsProcessing(true);
+    setError(null);
     
     try {
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is missing. Please set it in your Netlify Environment Variables.");
+      }
+
       const internalBase64 = await fileToBase64(internalFile);
       const externalBase64 = await fileToBase64(externalFile);
       
@@ -160,8 +166,9 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
       const report = await reconcileData(internalOCR.transactions, externalOCR.transactions, { name: extractedName, type, subType: subTypes });
       if (!name && extractedName) setName(extractedName);
       onReportGenerated(report);
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "An unexpected error occurred during processing.");
     } finally {
       setIsProcessing(false);
     }
@@ -288,7 +295,12 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
         </div>
       </div>
 
-      <div className="flex justify-center pt-4">
+      <div className="flex justify-center pt-4 flex-col items-center gap-4">
+        {error && (
+          <div className="w-full max-w-md p-4 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-sm font-bold animate-in fade-in zoom-in duration-300">
+            ⚠️ {error}
+          </div>
+        )}
         <button 
           onClick={handleReconcile}
           disabled={isProcessing || !internalFile || !externalFile || !name}

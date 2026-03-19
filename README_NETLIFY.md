@@ -18,8 +18,9 @@ Netlify should automatically detect the settings from `netlify.toml`, but double
 ## 4. Set Environment Variables
 This is **CRITICAL** for the AI features to work.
 1. In Netlify, go to **Site settings** -> **Environment variables**.
-2. Add the following variable:
-   - `GEMINI_API_KEY`: Your Google Gemini API Key.
+2. Add the following variable (MUST be exactly this name):
+   - **Key:** `GEMINI_API_KEY`
+   - **Value:** Your Google Gemini API Key.
 3. (Optional) Add `APP_URL`: The URL of your Netlify site (e.g., `https://your-site.netlify.app`).
 
 ## ⚠️ Important Note on Data Persistence
