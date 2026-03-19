@@ -90,7 +90,7 @@ const Header = () => {
         animate={{ y: 0, opacity: 1 }}
         className="flex items-center gap-6"
       >
-        <h1 className="text-4xl font-display bold-black-text tracking-[0.1em]">Nikhut Reconciliation Solution</h1>
+        <h1 className="text-4xl font-display bold-black-text tracking-[0.1em]">Nikhut AI Engine</h1>
         <div className="h-10 w-px bg-black/10 mx-2" />
         <div className="flex flex-col">
           <span className="text-black font-sans text-[13px] leading-[16px] text-left uppercase tracking-[0.4em] font-bold">Developed By Joistho</span>

@@ -38,7 +38,7 @@ export async function processOCR(
   onStatus?: (status: string) => void
 ): Promise<{ transactions: Transaction[], companyName?: string }> {
   const response = await generateContentWithRetry({
-    model: "gemini-1.5-flash-latest",
+    model: "gemini-flash-latest",
     contents: [
       {
         parts: [
@@ -156,7 +156,7 @@ export async function reconcileData(
         unmatchedEntries.push({
           internal: itx,
           external: external[matchIdx],
-          reason: "Amount discrepancy for same Voucher No."
+          reason: "Amount Mismatch"
         });
       }
       matchedInternalIds.add(iIdx);
@@ -246,7 +246,7 @@ export async function reconcileData(
 
 export async function analyzeDiscrepancies(report: ReconciliationReport): Promise<string> {
   const response = await generateContentWithRetry({
-    model: "gemini-1.5-flash-latest",
+    model: "gemini-flash-latest",
     contents: [
       {
         parts: [
