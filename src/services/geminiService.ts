@@ -7,9 +7,38 @@ if (!apiKey) {
 }
 const ai = new GoogleGenAI({ apiKey });
 
-export async function processOCR(fileData: string, mimeType: string): Promise<{ transactions: Transaction[], companyName?: string }> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function generateContentWithRetry(params: any, maxRetries = 3, retryDelay = 30000, onStatus?: (status: string) => void) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      const isQuotaError = error?.status === 429 || 
+                          error?.message?.includes('429') || 
+                          error?.message?.includes('ResourceExhausted') ||
+                          error?.message?.includes('Quota');
+      
+      if (isQuotaError && attempt < maxRetries - 1) {
+        const msg = `⚠️ Quota Full. Nikhut is resting for ${retryDelay / 1000}s... (Attempt ${attempt + 1}/${maxRetries})`;
+        console.warn(msg);
+        if (onStatus) onStatus(msg);
+        await delay(retryDelay);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("Max retries exceeded");
+}
+
+export async function processOCR(
+  fileData: string, 
+  mimeType: string, 
+  onStatus?: (status: string) => void
+): Promise<{ transactions: Transaction[], companyName?: string }> {
+  const response = await generateContentWithRetry({
+    model: "gemini-1.5-flash-latest",
     contents: [
       {
         parts: [
@@ -66,6 +95,8 @@ export async function processOCR(fileData: string, mimeType: string): Promise<{ 
     },
   });
 
+  if (!response) return { transactions: [] };
+  
   try {
     const text = response.text || "{}";
     return JSON.parse(text);
@@ -214,21 +245,26 @@ export async function reconcileData(
 }
 
 export async function analyzeDiscrepancies(report: ReconciliationReport): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: `Analyze this reconciliation report and provide a professional summary of the discrepancies. 
-    Focus on potential causes and recommended actions. Be specific about the unmatched entries.
-    
-    Report Summary:
-    Internal Balance: ₹${report.internalBalance.toLocaleString()}
-    External Balance: ₹${report.externalBalance.toLocaleString()}
-    Difference: ₹${report.difference.toLocaleString()}
-    
-    Unmatched Entries: ${JSON.stringify(report.unmatchedEntries.slice(0, 20))} ${report.unmatchedEntries.length > 20 ? '(truncated)' : ''}
-    `,
-    config: {
-      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
-    }
+  const response = await generateContentWithRetry({
+    model: "gemini-1.5-flash-latest",
+    contents: [
+      {
+        parts: [
+          {
+            text: `Analyze this reconciliation report and provide a professional summary of the discrepancies. 
+            Focus on potential causes and recommended actions. Be specific about the unmatched entries.
+            
+            Report Summary:
+            Internal Balance: ₹${report.internalBalance.toLocaleString()}
+            External Balance: ₹${report.externalBalance.toLocaleString()}
+            Difference: ₹${report.difference.toLocaleString()}
+            
+            Unmatched Entries: ${JSON.stringify(report.unmatchedEntries.slice(0, 20))} ${report.unmatchedEntries.length > 20 ? '(truncated)' : ''}
+            `,
+          }
+        ]
+      }
+    ]
   });
-  return response.text || "No analysis available.";
+  return response?.text || "No analysis available.";
 }

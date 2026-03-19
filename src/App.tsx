@@ -136,6 +136,7 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
   const [externalFile, setExternalFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const handleAddNewSubType = () => {
     if (newSubTypeInput && !subTypeOptions.includes(newSubTypeInput)) {
@@ -150,6 +151,7 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
     if (!internalFile || !externalFile || !name) return;
     setIsProcessing(true);
     setError(null);
+    setStatus("Reading files...");
     
     try {
       if (!process.env.GEMINI_API_KEY) {
@@ -159,9 +161,13 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
       const internalBase64 = await fileToBase64(internalFile);
       const externalBase64 = await fileToBase64(externalFile);
       
-      const internalOCR = await processOCR(internalBase64, internalFile.type);
-      const externalOCR = await processOCR(externalBase64, externalFile.type);
+      setStatus("Extracting data from Internal Ledger...");
+      const internalOCR = await processOCR(internalBase64, internalFile.type, (s) => setStatus(s));
       
+      setStatus("Extracting data from External Ledger...");
+      const externalOCR = await processOCR(externalBase64, externalFile.type, (s) => setStatus(s));
+      
+      setStatus("Reconciling entries...");
       const extractedName = internalOCR.companyName || externalOCR.companyName || name;
       const report = await reconcileData(internalOCR.transactions, externalOCR.transactions, { name: extractedName, type, subType: subTypes });
       if (!name && extractedName) setName(extractedName);
@@ -171,6 +177,7 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
       setError(err.message || "An unexpected error occurred during processing.");
     } finally {
       setIsProcessing(false);
+      setStatus(null);
     }
   };
 
@@ -301,6 +308,11 @@ const DataTab = ({ onReportGenerated }: { onReportGenerated: (report: Reconcilia
             ⚠️ {error}
           </div>
         )}
+        {status && isProcessing && (
+          <div className="w-full max-w-md p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-600 text-sm font-medium animate-pulse">
+            🔍 {status}
+          </div>
+        )}
         <button 
           onClick={handleReconcile}
           disabled={isProcessing || !internalFile || !externalFile || !name}
@@ -330,12 +342,17 @@ const ReportsTab = ({ reports }: { reports: ReconciliationReport[] }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const handleAnalyze = async (report: ReconciliationReport) => {
+    if (!process.env.GEMINI_API_KEY) {
+      alert("GEMINI_API_KEY is missing. Please set it in your environment variables.");
+      return;
+    }
     setIsAnalyzing(true);
     try {
       const analysis = await analyzeDiscrepancies(report);
       setAiAnalysis(analysis);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Analysis failed:", error);
+      alert(error.message || "AI Analysis failed. Please try again later.");
     } finally {
       setIsAnalyzing(false);
     }
